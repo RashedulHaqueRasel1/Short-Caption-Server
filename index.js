@@ -59,7 +59,7 @@ async function run() {
         })
 
 
-        // Find Users  Data With Email show client side ...
+        // Find Users  Profile With Email show client side ...
         app.get('/users/:email', async (req, res) => {
             const query = { email: req.params.email }
             const result = await usersCollection.findOne(query);
@@ -72,14 +72,34 @@ async function run() {
         // all caption see home
 
         app.get('/allCaption', async (req, res) => {
-            const filter = req.query 
+            const filter = req.query
             console.log(filter)
+
             const query = {
-                caption : { $regex : filter.search , $options: "i"}
+                caption: { $regex: filter.search, $options: "i" }
             }
-            const result = await captionCollection.find(query).toArray();
+
+            const page = parseInt(req.query.page) || 0;
+            const size = parseInt(req.query.size) || 10;
+
+            // console.log("pagiunation-----", page, size)
+
+            const result = await captionCollection.find(query)
+                .skip(page * size)
+                .limit(size)
+                .toArray();
             res.send(result)
         })
+
+        // All caption count
+        app.get('/caption-Count', async (req, res) => {
+            const count = await captionCollection.estimatedDocumentCount()
+            res.send({ count: count })
+        })
+
+
+
+
 
 
         // captionAdd data save (push) MongoDB
@@ -87,15 +107,6 @@ async function run() {
             const caption = req.body;
             const result = await captionCollection.insertOne(caption);
             res.send(result)
-        })
-
-
-        // DashBoard User contact request Delete 
-        app.delete('/caption/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await captionCollection.deleteOne(query);
-            res.send(result);
         })
 
 
@@ -111,15 +122,41 @@ async function run() {
 
 
         // favorite  Data Show favorite List 
-        app.get('/favorite/:email',  async (req, res) => {
+        app.get('/favorite/:email', async (req, res) => {
             const query = { email: req.params.email }
             const result = await favoriteCollection.find(query).toArray();
             res.send(result);
         })
 
 
-        
- 
+        // DashBoard User Caption Delete 
+        app.delete('/favorite/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await favoriteCollection.deleteOne(query);
+            res.send(result);
+        })
+
+
+
+
+        // Admin Show All Caption  
+        app.get('/adminCaption', async (req, res) => {
+            const result = await captionCollection.find().toArray();
+            res.send(result);
+        })
+
+
+        // Admin Caption Delete 
+        app.delete('/adminCaption/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await captionCollection.deleteOne(query);
+            res.send(result);
+        })
+
+
+
 
 
 
