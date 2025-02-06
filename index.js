@@ -72,22 +72,8 @@ async function run() {
         // all caption see home
 
         app.get('/allCaption', async (req, res) => {
-            const filter = req.query
-            console.log(filter)
 
-            const query = {
-                caption: { $regex: filter.search, $options: "i" }
-            }
-
-            const page = parseInt(req.query.page) || 0;
-            const size = parseInt(req.query.size) || 10;
-
-            // console.log("pagiunation-----", page, size)
-
-            const result = await captionCollection.find(query)
-                .skip(page * size)
-                .limit(size)
-                .toArray();
+            const result = await captionCollection.find().toArray();
             res.send(result)
         })
 
@@ -99,17 +85,40 @@ async function run() {
 
 
 
-
-
-
-        // captionAdd data save (push) MongoDB
         app.post('/captionAdd', async (req, res) => {
             const caption = req.body;
+
+            // Find the last caption entry to get the last captionNumber
+            const lastCaption = await captionCollection.find().sort({ captionNumber: -1 }).limit(1).toArray();
+            let newSerial = 1; // Default serial number for the first caption
+
+            // If there is an existing caption, set the new serial as the last captionNumber + 1
+            if (lastCaption.length > 0) {
+                newSerial = lastCaption[0].captionNumber + 1;
+            }
+
+            // Add the captionNumber (serial number) to the caption
+            caption.captionNumber = newSerial;
+
+            // Insert the caption with the serial number
             const result = await captionCollection.insertOne(caption);
+            res.send(result);
+        });
+
+
+        // Make Premium Api with Approved Premium Dashboard(Admin) (bioData collection)
+        app.patch('/caption/approved/:id', async (req, res) => {
+            const id = req.params.id;
+            // console.log(id)
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: 'Approved'
+                }
+            }
+            const result = await captionCollection.updateOne(filter, updateDoc);
             res.send(result)
         })
-
-
 
 
 
@@ -142,7 +151,7 @@ async function run() {
 
         // Admin Show All Caption  
         app.get('/adminCaption', async (req, res) => {
-            const result = await captionCollection.find().toArray();
+            const result = await captionCollection.find().sort({ _id: -1 }).toArray();
             res.send(result);
         })
 
@@ -154,6 +163,34 @@ async function run() {
             const result = await captionCollection.deleteOne(query);
             res.send(result);
         })
+
+
+
+
+        // Pagination API Route
+        // app.get('/items', async (req, res) => {
+        //     try {
+        //         const page = parseInt(req.query.page) || 1; 
+        //         const limit = parseInt(req.query.limit) || 10; 
+        //         const skip = (page - 1) * limit;
+
+        //         const totalItems = await captionCollection.countDocuments();
+        //         const items = await captionCollection.find({})
+        //             .skip(skip)
+        //             .limit(limit)
+        //             .toArray();
+
+        //         res.json({
+        //             page,
+        //             totalPages: Math.ceil(totalItems / limit),
+        //             totalItems,
+        //             items,
+        //         });
+        //     } catch (error) {
+        //         console.error(error);
+        //         res.status(500).json({ message: 'Internal server error' });
+        //     }
+        // });
 
 
 
