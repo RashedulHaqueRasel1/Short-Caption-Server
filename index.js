@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const ip = require("express-ip");
 const port = process.env.PORT || 5000;
 
 // middle Ware
@@ -17,6 +18,7 @@ app.use(
     })
 );
 app.use(express.json());
+app.use(ip().getIpInfoMiddleware);
 
 
 
@@ -41,6 +43,7 @@ async function run() {
         const usersCollection = client.db("Short-Caption").collection("users");
         const captionCollection = client.db("Short-Caption").collection("caption");
         const favoriteCollection = client.db("Short-Caption").collection("favorite");
+        const visitorsCollection = client.db("Short-Caption").collection("visitors");
 
 
 
@@ -167,34 +170,44 @@ async function run() {
 
 
 
-        // Pagination API Route
-        // app.get('/items', async (req, res) => {
-        //     try {
-        //         const page = parseInt(req.query.page) || 1; 
-        //         const limit = parseInt(req.query.limit) || 10; 
-        //         const skip = (page - 1) * limit;
+        // GET: User Visits
+        app.get("/get-user-visits", async (req, res) => {
+            try {
+                const userIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress; // Get IP Address
 
-        //         const totalItems = await captionCollection.countDocuments();
-        //         const items = await captionCollection.find({})
-        //             .skip(skip)
-        //             .limit(limit)
-        //             .toArray();
+                // Check if this IP already visited
+                let userData = await visitorsCollection.findOne({ ip: userIP });
 
-        //         res.json({
-        //             page,
-        //             totalPages: Math.ceil(totalItems / limit),
-        //             totalItems,
-        //             items,
-        //         });
-        //     } catch (error) {
-        //         console.error(error);
-        //         res.status(500).json({ message: 'Internal server error' });
-        //     }
-        // });
+                if (!userData) {
+                    await visitorsCollection.insertOne({ ip: userIP, visitCount: 1 });
 
+                    // Increase total visitors only for new IPs
+                    await visitorsCollection.updateOne(
+                        { key: "visitor_count" },
+                        { $inc: { totalVisits: 1 } },
+                        { upsert: true }
+                    );
+                }
 
+                res.json({ userIP, visitCount: userData ? userData.visitCount : 1 });
+            } catch (error) {
+                res.status(500).json({ error: "Server error" });
+            }
+        });
 
 
+
+
+        // / GET: Total Visitors
+        app.get("/get-visits", async (req, res) => {
+            try {
+                let visitorData = await visitorsCollection.findOne({ key: "visitor_count" });
+
+                res.json({ totalVisits: visitorData ? visitorData.totalVisits : 0 });
+            } catch (error) {
+                res.status(500).json({ error: "Server error" });
+            }
+        });
 
 
 
