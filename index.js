@@ -175,11 +175,26 @@ async function run() {
             try {
                 const userIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress; // Get IP Address
 
+                // Bangladesh Local Time Format
+                const bangladeshTime = new Date().toLocaleString("en-US", {
+                    timeZone: "Asia/Dhaka",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric"
+                });
+
                 // Check if this IP already visited
                 let userData = await visitorsCollection.findOne({ ip: userIP });
 
                 if (!userData) {
-                    await visitorsCollection.insertOne({ ip: userIP, visitCount: 1 });
+                    await visitorsCollection.insertOne({
+                        ip: userIP,
+                        visitCount: 1,
+                        lastVisit: bangladeshTime // Store Bangladesh local time
+                    });
 
                     // Increase total visitors only for new IPs
                     await visitorsCollection.updateOne(
@@ -187,18 +202,28 @@ async function run() {
                         { $inc: { totalVisits: 1 } },
                         { upsert: true }
                     );
+                } else {
+                    // Update visit count and last visit time
+                    await visitorsCollection.updateOne(
+                        { ip: userIP },
+                        {
+                            $inc: { visitCount: 1 },
+                            $set: { lastVisit: bangladeshTime }
+                        }
+                    );
                 }
 
-                res.json({ userIP, visitCount: userData ? userData.visitCount : 1 });
+                res.json({
+                    userIP,
+                    visitCount: userData ? userData.visitCount + 1 : 1,
+                    lastVisit: bangladeshTime
+                });
             } catch (error) {
                 res.status(500).json({ error: "Server error" });
             }
         });
 
-
-
-
-        // / GET: Total Visitors
+        // GET: Total Visitors
         app.get("/get-visits", async (req, res) => {
             try {
                 let visitorData = await visitorsCollection.findOne({ key: "visitor_count" });
@@ -208,6 +233,14 @@ async function run() {
                 res.status(500).json({ error: "Server error" });
             }
         });
+
+
+        // Show All Visitors
+        app.get("/api/last-visits", async (req, res) => {
+            const result = await visitorsCollection.find().sort({ _id: -1 }).toArray();
+            res.send(result);
+        })
+
 
 
 
